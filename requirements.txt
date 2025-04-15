@@ -1,3 +1,6 @@
 pillow
+regex
 torchmetrics
 pandas
+pycocotools
+tqdm

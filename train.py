@@ -10,6 +10,7 @@ import random
 from PIL import Image
 from torchmetrics.detection.mean_ap import MeanAveragePrecision
 import time
+from tqdm import tqdm
 
 # Custom dataset loader with preprocessing and augmentation
 class CocoDataset(CocoDetection):
@@ -57,7 +58,7 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, co
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
 
 # Model setup
-model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(weights='COCO_V1', trainable_backbone_layers=5)
+model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(weights='COCO_V1')
 in_features = model.roi_heads.box_predictor.cls_score.in_features
 model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
 
@@ -67,7 +68,7 @@ print(trainable_params)
 model = model.cuda()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.0025, momentum=0.9, weight_decay=0.0005)
 lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
-num_epochs = 6
+num_epochs = 5
 best_accuracy = 0.0
 map_metric = MeanAveragePrecision()
 
@@ -77,10 +78,10 @@ for epoch in range(num_epochs):
     print(f'start epoch {epoch}')
     model.train()
     train_loss = 0.0
-    for images, targets in train_loader:
+
+    for images, targets in tqdm(train_loader, desc=f"Epoch {epoch+1} - Training", leave=False):
         images = [img.cuda() for img in images]
         targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
-
 
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
@@ -90,30 +91,31 @@ for epoch in range(num_epochs):
         optimizer.step()
 
         train_loss += losses.item()
+    
     lr_scheduler.step()
 
     # Validation
     model.eval()
-
     map_metric.reset()
     with torch.no_grad():
-        for images, targets in val_loader:
+        for images, targets in tqdm(val_loader, desc=f"Epoch {epoch+1} - Validation", leave=False):
             images = [img.cuda() for img in images]
             targets = [{k: v.cuda() for k, v in t.items()} for t in targets]
-    
+
             outputs = model(images)
             outputs = [{k: v.cpu() for k, v in o.items()} for o in outputs]
             targets = [{k: v.cpu() for k, v in t.items()} for t in targets]
-    
+
             map_metric.update(outputs, targets)
-    
+
     map_results = map_metric.compute()
     print(f"Epoch {epoch + 1}: Train Loss = {train_loss:.4f}", end="")
     print(f", mAP@0.5 = {map_results['map_50']:.4f}, mAP@[.5:.95] = {map_results['map']:.4f}")
-    
+
     if map_results['map'] > best_accuracy:
         best_accuracy = map_results['map']
         torch.save(model.state_dict(), 'fasterrcnn_digit_model.pth')
         print("Model saved.")
-    
+
     print("epoch time: ", time.time() - start)
+
