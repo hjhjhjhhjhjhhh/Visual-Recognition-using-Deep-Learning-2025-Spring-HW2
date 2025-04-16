@@ -5,6 +5,7 @@ train2.txt
 *.ckpt
 *.zip
 *.pdf
+*.docx
 
 *.csv
 *.log

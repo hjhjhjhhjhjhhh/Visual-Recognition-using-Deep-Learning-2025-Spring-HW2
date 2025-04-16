@@ -8,13 +8,13 @@ import json
 import pandas as pd
 from torchvision import transforms
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = "cuda" if torch.cuda.is_available() else "cpu"
 # Config
 num_classes = 11
 score_thresh = 0.5
 
-test_img_folder = '../nycu-hw2-data/nycu-hw2-data/test'
-model_path = 'fasterrcnn_digit_model_5.pth'
+test_img_folder = "../nycu-hw2-data/nycu-hw2-data/test"
+model_path = "fasterrcnn_digit_model_5.pth"
 
 # Load model
 model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(pretrained=False)
@@ -37,9 +37,9 @@ for image_name in image_files:
     with torch.no_grad():
         output = model([image])[0]
 
-    boxes = output['boxes'].cpu().tolist()
-    labels = output['labels'].cpu().tolist()
-    scores = output['scores'].cpu().tolist()
+    boxes = output["boxes"].cpu().tolist()
+    labels = output["labels"].cpu().tolist()
+    scores = output["scores"].cpu().tolist()
 
     image_id = int(os.path.splitext(image_name)[0])
     detected_digits = []
@@ -52,23 +52,25 @@ for image_name in image_files:
 
             cat_id = label
 
-            pred_json.append({
-                "image_id": image_id,
-                "category_id": cat_id,
-                "bbox": [x_min, y_min, width, height],
-                "score": score
-            })
+            pred_json.append(
+                {
+                    "image_id": image_id,
+                    "category_id": cat_id,
+                    "bbox": [x_min, y_min, width, height],
+                    "score": score,
+                }
+            )
 
             detected_digits.append((x_min, str(label - 1)))
-        #print(f'{x_min:.4f}, {y_min:.4f}, {width:.4f}, {height:.4f}')
+        # print(f'{x_min:.4f}, {y_min:.4f}, {width:.4f}, {height:.4f}')
 
     if detected_digits:
         detected_digits.sort(key=lambda x: x[0])  # Sort by x position
-        pred_label = ''.join([d[1] for d in detected_digits])
+        pred_label = "".join([d[1] for d in detected_digits])
     else:
         pred_label = -1
 
-    print(f'{image_id}: {pred_label}')
+    print(f"{image_id}: {pred_label}")
     log_file.write(f"{image_id}: {pred_label}\n")
 
     pred_csv.append({"image_id": image_id, "pred_label": pred_label})
@@ -80,6 +82,6 @@ with open("pred.json", "w") as f:
     json.dump(pred_json, f)
 
 # Save pred.csv
-pd.DataFrame(pred_csv).to_csv('pred.csv', index=False)
+pd.DataFrame(pred_csv).to_csv("pred.csv", index=False)
 
 print("all files are saved")
